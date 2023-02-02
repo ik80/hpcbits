@@ -1,0 +1,10 @@
+ulimit -s 128
+ulimit -i 120000
+ulimit -n 120000
+echo 120000 > /proc/sys/kernel/threads-max
+echo 600000 > /proc/sys/vm/max_map_count
+echo 200000 > /proc/sys/kernel/pid_max
+echo "4096 63999" > /proc/sys/net/ipv4/ip_local_port_range
+
+#mcedit /etc/systemd/logind.conf
+#UserTasksMax=128288

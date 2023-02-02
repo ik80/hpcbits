@@ -1,0 +1,11 @@
+SparseArrayHashTable.h:
+
+    - open-addressed linear-probed array
+    - trivial ops, except deletion which would involve a sequence of swaps
+    
+LFLinkedHashTable.h:
+
+    - lock-free list based
+    - adriver-like nodes with (header(state,tag,idx),key,value) structure
+    - pooled nodes
+    
