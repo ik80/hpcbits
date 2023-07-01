@@ -1,3 +1,0 @@
-//TODO: Oookay. This should be like a normal rb-tree, BUTT the node should be cache-line sized ringbuffer of keys and related sorted array(inner nodes) / sorted vector(leaf level nodes) of values.
-//TODO: when adding element it should trickle to relevant node (if needed it will displace boundary k/v pair, and it in turn will trickle down to leaf level, swapping shit around as neccessary)
-//TODO: when removing element it should bubble up the element into the hole left by deleted k/v pair). big nodes should work like ordinary RB tree, like i said at the beginning
