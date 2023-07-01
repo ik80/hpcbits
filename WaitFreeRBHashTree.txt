@@ -10,6 +10,7 @@ template<typename K, typename V> struct KeyNode
     ValueIdx value;
     Color color;
     Lock lock;
+    int tag;
 };
 
 template<typename K, typename V> struct HashRBTree 
@@ -18,7 +19,7 @@ template<typename K, typename V> struct HashRBTree
     std::deque<V> val_nodes;
     std::unordered_map<K, KeyNodeIdx> keys_hash;
     KeyNodeIdx root;
-}
+};
 
 Where:
 
@@ -27,4 +28,5 @@ Where:
 3. std::unordered_map would duplicate keys, so instead could be replace with custom wait free table without keys
 4. Should be possible to serialize hash / key / value node accesses based on Key comparison via preparing 
    a set of access points and prelocking them in key order, retrying on contention
+5. KeyNode's tag should be incremented with every operation, tag mismatch when locking should lead to retry too
    
