@@ -1,0 +1,30 @@
+A combination of hash table and rb tree should be possible to made wait free.
+
+Given K, V as key and value types, below are main pieces of storage layout
+
+template<typename K, typename V> struct KeyNode 
+{
+    const K key;
+    KeyNodeIdx left;
+    KeyNodeIdx right;
+    ValueIdx value;
+    Color color;
+    Lock lock;
+};
+
+template<typename K, typename V> struct HashRBTree 
+{
+    std::deque<KeyNode<K,V>> key_nodes;
+    std::deque<V> val_nodes;
+    std::unordered_map<K, KeyNodeIdx> keys_hash;
+    KeyNodeIdx root;
+}
+
+Where:
+
+1. KeyNodeIdx is integer idx into key_nodes and ValueIdx is integer idx into val_nodes
+2. All red black tree algorithms remain the same
+3. std::unordered_map would duplicate keys, so instead could be replace with custom wait free table without keys
+4. Should be possible to serialize hash / key / value node accesses based on Key comparison via preparing 
+   a set of access points and prelocking them in key order, retrying on contention
+   
