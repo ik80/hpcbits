@@ -4,8 +4,6 @@
 struct SparseAdjMatrix
 {
     static constexpr size_t BITS_PER_BYTE = 8;
-    static constexpr size_t CACHE_LINE_SIZE = 64;
-
     void setAdjascent(size_t x, size_t y, bool adjascent) noexcept
     {
 	if (x == y)
@@ -45,7 +43,7 @@ struct SparseAdjMatrix
 	return (*pUll) & (1ULL << ullOffset);
     }
 
-    SparseAdjMatrix(size_t size = 0) : numElements(size)
+    explicit SparseAdjMatrix(size_t size) : numElements(size)
     {
 	if (numElements)
 	{
@@ -67,7 +65,6 @@ struct SparseAdjMatrix
     }
 
     SparseAdjMatrix(SparseAdjMatrix&& other) noexcept // move constructor
-	: SparseAdjMatrix()
     {
 	arrSparseAdjMatrix = std::exchange(other.arrSparseAdjMatrix, nullptr);
 	actualSize = std::exchange(other.actualSize, 0);
@@ -76,7 +73,9 @@ struct SparseAdjMatrix
 
     SparseAdjMatrix& operator=(const SparseAdjMatrix& other) // copy assignment
     {
-	return *this = SparseAdjMatrix(other);
+	SparseAdjMatrix tmp(other);
+	*this = std::move(tmp);
+        return *this;
     }
 
     SparseAdjMatrix& operator=(SparseAdjMatrix&& other) noexcept // move assignment
