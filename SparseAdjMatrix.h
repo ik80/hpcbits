@@ -17,7 +17,7 @@ struct SparseAdjMatrix
 	    y ^= x;
 	    x ^= y;
 	}
-	const size_t pos = (((y*(y - 1)) >> 2) + x);
+	const size_t pos = (((y*(y - 1)) >> 1) + x);
 	const size_t ullIdx = pos / (BITS_PER_BYTE*(sizeof(size_t)));
 	const size_t ullOffset = pos % (BITS_PER_BYTE*(sizeof(size_t)));
 	size_t * const pUll = (size_t * const) &(arrSparseAdjMatrix[ullIdx]);
@@ -38,7 +38,7 @@ struct SparseAdjMatrix
 	    y ^= x;
 	    x ^= y;
 	}
-	const size_t pos = (((y*(y - 1)) >> 2) + x);
+	const size_t pos = (((y*(y - 1)) >> 1) + x);
 	const size_t ullIdx = pos / (BITS_PER_BYTE*(sizeof(size_t)));
 	const size_t ullOffset = pos % (BITS_PER_BYTE*(sizeof(size_t)));
 	size_t * const pUll = (size_t * const) &(arrSparseAdjMatrix[ullIdx]);
