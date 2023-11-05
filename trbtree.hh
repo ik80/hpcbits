@@ -11,14 +11,26 @@
 
 #include <stddef.h>
 #include <stdint.h>
+#include <cstdio>
+#include <cstdlib>
 
 #include <memory>
 #include <utility>
+
+#ifndef NDEBUG
+#include <vector>
+#include <algorithm>
+#include <iostream>
+#endif
 
 #ifndef UINTPTR_MAX
 #error "Unsupported platform"
 #endif
 
+#ifndef NDEBUG
+extern bool g_TRBTree_dump_stats;
+std::vector<void*> op_tags;
+#endif
 
 // TODO: save / load
 // TODO: implement IBM/Adriver kind of intrusive spinlocking. Element should be struct { THint hint; TKVPair kvPair; }
@@ -33,11 +45,16 @@
 //       
 //       Threaded RB Tree algorithm should be linearizable with spinlocking elements in up to 3 recolors/rotations
 //       incrementing tags for all elements changed in them, and validating tags up the stack trail to the root
+//       Root recoloring can be made as cas, so there's no cache invalidations, or if there is, Load-link/store-conditional
 
 template<typename Key, typename T, class Compare = std::less<Key>, class Allocator = std::allocator<std::pair<const Key, T> > >
 class TRBTree
 {
+// DEBUG
     friend int main(int, char* []); // TODO: debug
+    friend void testShit1(); // TODO: debug
+    friend void testShit2(); // TODO: debug
+// DEBUG
     friend class iterator;
 public:
 
@@ -69,7 +86,7 @@ private:
 
     enum TRBTreeNodeTrailTag : unsigned char
     {
-        TRB_CHILD = 0, TRB_TRAIL, TRB_TAG_MAX
+        TRB_CHILD = 0, TRB_TRAIL = 1, TRB_TAG_MAX = 2
     };
     static inline TRBTreeNodeTrailTag otherTag(TRBTreeNodeTrailTag tag)
     {
@@ -82,7 +99,7 @@ private:
 
     enum TRBTreeNodeChildSide : unsigned char
     {
-        TRB_LEFT = 0, TRB_RIGHT, TRB_SIDE_MAX
+        TRB_LEFT = 0, TRB_RIGHT = 1, TRB_SIDE_MAX = 2
     };
     static inline TRBTreeNodeChildSide otherSide(TRBTreeNodeChildSide side)
     {
@@ -132,15 +149,11 @@ public:
         using second_argument_type = value_type;
 
         TRBTreeValueCompare(Compare inComparator) :
-            comparator(inComparator)
-        {
-        }
-        ;
+            comparator(inComparator) {}
         bool operator() (const value_type& lhs, const value_type& rhs) const
         {
             return comparator(lhs, rhs);
         }
-        ;
     private:
         Compare comparator;
     };
@@ -293,7 +306,7 @@ private:
     }
     // END DEBUG!
 
-    static constexpr size_t MAX_TREE_HEIGHT = 48;
+    static constexpr size_t MAX_TREE_HEIGHT = 128;
     TRBTreeNode * pRoot = nullptr;
     const key_compare & comparator;
     const allocator_type & allocator;
@@ -309,6 +322,10 @@ inline void TRBTree<Key, T, Compare, Allocator>::set_link (TRBTree<Key, T, Compa
 {
     pNode->pLinks[childSide] = (TRBTreeNode *) (((size_t) pLink & ~3ULL) | (trailTag == TRB_TAG_MAX ? (get_trail_tag(pNode, childSide)  == TRB_TRAIL ? 2ULL : 0ULL) : (trailTag == TRB_TRAIL ? 2ULL : 0ULL))
                     | (TRBTree<Key, T, Compare, Allocator>::get_color (pNode) == TRB_RED ? 1ULL : 0ULL));
+#ifndef NDEBUG
+    if (g_TRBTree_dump_stats)
+        op_tags.emplace_back(pNode);
+#endif
 }
 
 template<typename Key, typename T, class Compare, class Allocator>
@@ -324,6 +341,10 @@ inline void TRBTree<Key, T, Compare, Allocator>::set_trail_tag (TRBTree<Key, T, 
                                                                        TRBTree<Key, T, Compare, Allocator>::TRBTreeNodeTrailTag trailTag)
 {
     pNode->pLinks[childSide] = (TRBTreeNode *) (((size_t) pNode->pLinks[childSide] & ~2ULL) | (trailTag == TRB_TRAIL ? 2ULL : 0ULL));
+#ifndef NDEBUG
+    if (g_TRBTree_dump_stats)
+        op_tags.emplace_back(pNode);
+#endif
 }
 
 template<typename Key, typename T, class Compare, class Allocator>
@@ -338,6 +359,10 @@ inline void TRBTree<Key, T, Compare, Allocator>::set_color (TRBTree<Key, T, Comp
                                                                    TRBTree<Key, T, Compare, Allocator>::TRBTreeNodeColor color)
 {
     pNode->pLinks[TRB_LEFT] = (TRBTreeNode *) (((size_t) pNode->pLinks[TRB_LEFT] & ~1ULL) | (color == TRB_RED ? 1ULL : 0ULL));
+#ifndef NDEBUG
+    if (g_TRBTree_dump_stats)
+        op_tags.emplace_back(pNode);
+#endif
 }
 
 template<typename Key, typename T, class Compare, class Allocator>
@@ -384,9 +409,6 @@ TRBTree<Key, T, Compare, Allocator>::TRBTree (const TRBTree<Key, T, Compare, All
     {
         if (get_trail_tag (p, TRB_LEFT) == TRB_CHILD)
         {
-/*            if (!copy_node (q, get_link (p, TRB_LEFT), TRB_LEFT))
-                abort ();*/
-
             p = get_link (p, TRB_LEFT);
             q = get_link (q, TRB_LEFT);
         }
@@ -407,9 +429,6 @@ TRBTree<Key, T, Compare, Allocator>::TRBTree (const TRBTree<Key, T, Compare, All
             p = get_link (p, TRB_RIGHT);
             q = get_link (q, TRB_RIGHT);
         }
-
-/*        if ((get_trail_tag (p, TRB_RIGHT) == TRB_CHILD) && !copy_node (q, get_link (p, TRB_RIGHT), TRB_RIGHT))
-            abort ();*/
     }
 }
 
@@ -438,6 +457,8 @@ TRBTree<Key, T, Compare, Allocator>::~TRBTree ()
                 n = get_link (n, TRB_LEFT);
 
         delete p;
+        if (n == (TRBTreeNode *)&pRoot)
+            break;
         p = n;
     }
 }
@@ -445,13 +466,24 @@ TRBTree<Key, T, Compare, Allocator>::~TRBTree ()
 template<typename Key, typename T, class Compare, class Allocator>
 typename TRBTree<Key, T, Compare, Allocator>::TRBTreeNode * TRBTree<Key, T, Compare, Allocator>::try_insert (TRBTree<Key, T, Compare, Allocator>::value_type&& item, bool & inserted)
 {
-    TRBTreeNode * pa[MAX_TREE_HEIGHT]; /* Nodes on stack. */
-    TRBTreeNodeChildSide da[MAX_TREE_HEIGHT]; /* Directions moved from stack nodes. */
-    int k; /* Stack height. */
+#ifndef NDEBUG
+    TRBTreeNode * sa[MAX_TREE_HEIGHT] = {0}; // Siblings Nodes on stack.
+    TRBTreeNodeTrailTag sa_tag[MAX_TREE_HEIGHT] = {TRB_TAG_MAX}; // Whether simblind is a child or a thread
+    int max_k = 1;
+    // please note that sibling direction can be attained from otherside(da[idx]), check the idx
+    if (g_TRBTree_dump_stats) 
+    {
+        std::cout << "inserting " << item.first << "->" << item.second << std::endl;
+    }
+#endif
 
-    TRBTreeNode * p; /* Traverses tree looking for insertion point. */
-    TRBTreeNode * n; /* Newly inserted node. */
-    TRBTreeNodeChildSide dir = TRB_SIDE_MAX; /* Side of |p| on which |n| is inserted. */
+    TRBTreeNode * pa[MAX_TREE_HEIGHT] = {0}; // Nodes on stack
+    TRBTreeNodeChildSide da[MAX_TREE_HEIGHT] = {TRB_SIDE_MAX}; // Directions moved from stack nodes
+    int k = 0; // Stack height
+
+    TRBTreeNode * p; // Traverses tree looking for insertion point. 
+    TRBTreeNode * n; // Newly inserted node. 
+    TRBTreeNodeChildSide dir = TRB_SIDE_MAX; // Side of |p| on which |n| is inserted. 
 
     da[0] = TRB_LEFT;
     pa[0] = (TRBTreeNode *) &pRoot; // hoho
@@ -476,6 +508,13 @@ typename TRBTree<Key, T, Compare, Allocator>::TRBTreeNode * TRBTree<Key, T, Comp
             }
             pa[k] = p;
             da[k++] = dir;
+#ifndef NDEBUG
+            if (g_TRBTree_dump_stats) 
+            {
+                sa[k] = get_link(pa[k-1], otherSide(da[k-1]));
+                sa_tag[k] = get_trail_tag(pa[k-1], otherSide(da[k-1]));
+            }
+#endif
             if (get_trail_tag(p, dir) == TRB_TRAIL)
                 break;
             p = get_link(p, dir);
@@ -487,9 +526,12 @@ typename TRBTree<Key, T, Compare, Allocator>::TRBTreeNode * TRBTree<Key, T, Comp
         dir = TRB_LEFT;
     }
 
+#ifndef NDEBUG
+    max_k = k;
+#endif
+
     n = new TRBTreeNode (std::forward<value_type>(item));
     inserted = true;
-
     ++numElements;
 
     set_trail_tag (n, TRB_LEFT, TRB_TRAIL);
@@ -607,7 +649,48 @@ typename TRBTree<Key, T, Compare, Allocator>::TRBTreeNode * TRBTree<Key, T, Comp
             }
         }
     }
-    set_color (pRoot, TRB_BLACK);
+    if (get_link((TRBTreeNode *)&pRoot, TRB_LEFT))
+        set_color(get_link((TRBTreeNode *)&pRoot, TRB_LEFT), TRB_BLACK);
+
+#ifndef NDEBUG
+    if (g_TRBTree_dump_stats) 
+    {
+        // compute and output the debug stats: keys, height from root
+        std::sort(op_tags.begin(), op_tags.end());
+        op_tags.erase(std::unique(op_tags.begin(), op_tags.end()), op_tags.end());
+
+        std::sort(op_tags.begin(), op_tags.end(), [](void * & lhs, void * & rhs){ return ((TRBTreeNode*)lhs)->data.first < ((TRBTreeNode*)rhs)->data.first; });
+        for (auto & ptr : op_tags) 
+        {
+            bool found = false;   
+            for (size_t i = 0; i <= max_k; ++i) 
+            {
+                if (pa[i] == ((TRBTreeNode*)ptr)) 
+                {
+                    std::cout << "Key " << ((TRBTreeNode*)ptr)->data.first << " at height " << i << std::endl;
+                    found = true;
+                    break;
+                }
+                else if (sa[i] == ((TRBTreeNode*)ptr)) 
+                {
+                    std::cout << "Key " << ((TRBTreeNode*)ptr)->data.first << " at height " << i << std::endl;
+                    found = true;
+                    break;
+                }
+            }
+            if (!found)  
+            {
+                if (n == ((TRBTreeNode*)ptr)) 
+                {
+                    std::cout << "New item " << ((TRBTreeNode*)ptr)->data.first << std::endl;
+                }
+                else 
+                    std::cout << "Element with key " << ((TRBTreeNode*)ptr)->data.first << " not found" << std::endl;
+            }
+        }
+        op_tags.clear();
+    }
+#endif
 
     return n;
 }
@@ -615,8 +698,9 @@ typename TRBTree<Key, T, Compare, Allocator>::TRBTreeNode * TRBTree<Key, T, Comp
 template<typename Key, typename T, class Compare, class Allocator>
 typename TRBTree<Key, T, Compare, Allocator>::TRBTreeNode * TRBTree<Key, T, Compare, Allocator>::try_remove (const TRBTree<Key, T, Compare, Allocator>::key_type & key)
 {
-    TRBTreeNode * pa[MAX_TREE_HEIGHT]; /* Nodes on stack. */
-    TRBTreeNodeChildSide da[MAX_TREE_HEIGHT]; /* Directions moved from stack nodes. */
+    // abort(); // this never worked properly
+    TRBTreeNode * pa[MAX_TREE_HEIGHT] = {0}; /* Nodes on stack. */
+    TRBTreeNodeChildSide da[MAX_TREE_HEIGHT] = {TRB_SIDE_MAX}; /* Directions moved from stack nodes. */
     int k = 0; /* Stack height. */
 
     TRBTreeNode * p;
@@ -627,25 +711,22 @@ typename TRBTree<Key, T, Compare, Allocator>::TRBTreeNode * TRBTree<Key, T, Comp
         return nullptr;
 
     p = (TRBTreeNode *)&pRoot;
-    if (p) 
+    while(true)
     {
-        while(true)
+        if (key_comp()(key, p->data.first))
+            dir = TRB_LEFT;
+        else
         {
-            if (key_comp()(key, p->data.first))
-                dir = TRB_LEFT;
+            if (key_comp()(p->data.first, key))
+                dir = TRB_RIGHT;
             else
-            {
-                if (key_comp()(p->data.first, key))
-                    dir = TRB_RIGHT;
-                else
-                    break;
-            }
-            pa[k] = p;
-            da[k++] = dir;
-            if (get_trail_tag(p, dir) == TRB_TRAIL)
-                return nullptr;
-            p = get_link(p, dir);
+                break;
         }
+        pa[k] = p;
+        da[k++] = dir;
+        if (get_trail_tag(p, dir) == TRB_TRAIL)
+            return nullptr;
+        p = get_link(p, dir);
     }
     res = p;
 
@@ -875,14 +956,14 @@ typename TRBTree<Key, T, Compare, Allocator>::TRBTreeNode * TRBTree<Key, T, Comp
             }
         }
 
-        if (pRoot != nullptr)
-            set_color(pRoot, TRB_BLACK);
+        if (get_link((TRBTreeNode *)&pRoot, TRB_LEFT))
+            set_color(get_link((TRBTreeNode *)&pRoot, TRB_LEFT), TRB_BLACK);
     }
 
     delete res;
     --numElements;
 
-    return 0; // TODO: return next(res)
+    return (TRBTreeNode *) 1; // TODO: return next(res)
 }
 
 template<typename Key, typename T, class Compare, class Allocator>
