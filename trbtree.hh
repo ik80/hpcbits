@@ -649,7 +649,7 @@ typename TRBTree<Key, T, Compare, Allocator>::TRBTreeNode * TRBTree<Key, T, Comp
             }
         }
     }
-    if (get_link((TRBTreeNode *)&pRoot, TRB_LEFT))
+    if (get_link((TRBTreeNode *)&pRoot, TRB_LEFT) && (get_color(get_link((TRBTreeNode *)&pRoot, TRB_LEFT)) != TRB_BLACK))
         set_color(get_link((TRBTreeNode *)&pRoot, TRB_LEFT), TRB_BLACK);
 
 #ifndef NDEBUG
@@ -956,7 +956,7 @@ typename TRBTree<Key, T, Compare, Allocator>::TRBTreeNode * TRBTree<Key, T, Comp
             }
         }
 
-        if (get_link((TRBTreeNode *)&pRoot, TRB_LEFT))
+        if (get_link((TRBTreeNode *)&pRoot, TRB_LEFT) && (get_color(get_link((TRBTreeNode *)&pRoot, TRB_LEFT)) != TRB_BLACK))
             set_color(get_link((TRBTreeNode *)&pRoot, TRB_LEFT), TRB_BLACK);
     }
 
