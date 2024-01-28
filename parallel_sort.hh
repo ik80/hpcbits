@@ -98,6 +98,7 @@ inline void ugh_sort(std::vector<T>& to_sort)
   ugh_qsort(to_sort, 0, to_sort.size()-1);
 }
 
+// TODO: first steps are always the longest. this can be parallelized by processing same range using multiple threads that work on to_sort[i*num_threads + threadnum] items
 template <typename T>
 void ugh_qsort_parallel(std::vector<T>& to_sort, std::deque<std::pair<size_t, size_t>>& tasks, std::mutex& mx, std::condition_variable& cv, size_t& latch)
 {
@@ -138,6 +139,7 @@ void ugh_qsort_parallel(std::vector<T>& to_sort, std::deque<std::pair<size_t, si
       if (hi - lo < (to_sort.size() / 32)) 
       {
         ugh_qsort(to_sort, lo, hi);
+        // std::sort(to_sort.begin() + lo, to_sort.begin() + hi +1);
         {
           std::unique_lock<std::mutex> guard(mx);
           if (latch)
