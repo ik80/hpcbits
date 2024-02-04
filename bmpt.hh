@@ -280,10 +280,10 @@ public:
             if (bucket_idx != prev_bucket_idx)
             {
                 prev_bucket_idx = bucket_idx;
-                chunk = storage[bucket_idx];
+                chunk = &(storage[bucket_idx]);
             }
             const size_t rank = googlerank(reinterpret_cast<const unsigned char *>(&tree_map[tree_levels_ - 1][(idx - idx % CHUNK_SIZE) / QWORD_BITS]), idx % CHUNK_SIZE);
-            *(chunk[rank]) = value;
+            (*chunk)[rank] = value;
             return true;
         }
         return false;
@@ -300,10 +300,10 @@ public:
             if (bucket_idx != prev_bucket_idx)
             {
                 prev_bucket_idx = bucket_idx;
-                chunk = storage[bucket_idx];
+                chunk = &(storage[bucket_idx]);
             }
             const size_t rank = googlerank(reinterpret_cast<const unsigned char *>(&tree_map[tree_levels_ - 1][(idx - idx % CHUNK_SIZE) / QWORD_BITS]), idx % CHUNK_SIZE);
-            *(chunk[rank]) = value;
+            ((*chunk)[rank]) = value;
             return true;
         }
         return false;
@@ -335,7 +335,7 @@ public:
         return test_bit(tree_map[tree_levels_ - 1][idx / QWORD_BITS], idx % QWORD_BITS);
     }
     // TODO: not found??
-    T &&remove(size_t idx)
+    bool &&remove(size_t idx)
     {
         // test
         if (test(idx))
@@ -351,13 +351,13 @@ public:
             }
             const size_t rank = googlerank(reinterpret_cast<const unsigned char *>(&tree_map[tree_levels_ - 1][(idx - idx % CHUNK_SIZE) / QWORD_BITS]), idx % CHUNK_SIZE);
             // move value from storage
-            T &&res = std::move(chunk[rank]);
+            //T &&res = std::move(chunk[rank]);
             chunk->erase(chunk->begin() + rank);
             // clear bits tree_map upwards from lowest level as needed
             clear_bits(idx);
-            return res;
+            return true;
         }
-        return T();
+        return false;
     }
     bool get(size_t idx, T &value)
     {
@@ -519,6 +519,7 @@ void swap(BitmapTree<T> &lhs, BitmapTree<T> &rhs)
     lhs.swap(rhs);
 }
 
-// TODO: all this is supposed to be used as primary key/identity value in a database table: bmpt<size_t/*unique*/, Record>, or {bmpt<size_t/*unique*/, Field1>, ... , bmpt<size_t/*unique*/, FieldN>} if columnar
+// TODO: all this is supposed to be used as primary key/autoincrement value in a database table: bmpt<size_t/*unique*/, Record>, or {bmpt<size_t/*unique*/, Field1>, ... , bmpt<size_t/*unique*/, FieldN>} if columnar
 // TODO: in this case, foreign key would be bmpt<size_t/*primary key of foreign table*/, size_t/*primary key of this table> and joins would be just AND of bmpt bit structure on all levels, making it a BITMAP JOIN 
-// TODO: identity value would just be found by looking any zero in bmpt bitmap structure, also in NLog512(N) time, keeping it always < size of the table
+// TODO: autoincrement value would just be found by looking any zero in bmpt bitmap structure, also in NLog512(N) time, keeping it always < size of the table
+// TODO: excessive memory usage for bitmap can be actually done using same approach as values - hashmaps to bitmap pieces on all levels of bitmap tree
