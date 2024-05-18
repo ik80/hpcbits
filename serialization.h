@@ -17,7 +17,7 @@
 #ifndef DYNA_SERIALIZATION_PACKET_HEADER_RESERVED     // When serializing you'll
                                                       // get set of buffers with
                                                       // this much reserved
-#define DYNA_SERIALIZATION_PACKET_HEADER_RESERVED 128  // This MUST MATCH the (fixed) size of your headers on the wire
+#define DYNA_SERIALIZATION_PACKET_HEADER_RESERVED 16  // This MUST MATCH the (fixed) size of your headers on the wire
 #endif
 #ifndef DYNA_SERIALIZATION_FRAGMENT_SIZE
 #define DYNA_SERIALIZATION_FRAGMENT_SIZE 1344  // "Internet MTU"
@@ -121,7 +121,7 @@ struct SerializationContext
 template <typename S>
 void Serialize(S& message, SerializationContext* pContext)
 {
-  static_assert(std::is_pod<S>());  // non pod structure missing serialization
+  static_assert(std::is_standard_layout<S>::value && std::is_trivial<S>::value);  // non pod structure missing serialization
                                     // methods specializations
   static_assert(sizeof(S) + sizeof(uint32_t) + DYNA_SERIALIZATION_PACKET_HEADER_RESERVED <=
                 DYNA_SERIALIZATION_FRAGMENT_SIZE);  // pod structure + boudnaryCounter
@@ -135,7 +135,7 @@ void DeSerialize(S& message,
                  SerializationContext* pContext)  // pContext should have offset == 0,
                                                   // boundaryCounter == 0 and have iovecs ready
 {
-  static_assert(std::is_pod<S>());  // non pod structure missing serialization
+  static_assert(std::is_standard_layout<S>::value && std::is_trivial<S>::value);  // non pod structure missing serialization
                                     // methods specializations
   pContext->GetNextFragmentIfNeeded();
   message = *(reinterpret_cast<S*>(pContext->FragmentBuffer()));
@@ -144,7 +144,7 @@ void DeSerialize(S& message,
 template <typename S>
 void GetSerializeableLength(S& message, uint64_t& messageSize)
 {
-  static_assert(std::is_pod<S>());  // non pod structure missing serialization
+  static_assert(std::is_standard_layout<S>::value && std::is_trivial<S>::value);  // non pod structure missing serialization
                                     // methods specializations
   messageSize += sizeof(S);
 }
@@ -166,7 +166,7 @@ void DeSerializeBuffer(S& message, char*& pBuffer)
 template <typename S>
 void Serialize(std::vector<S>& messageVector, SerializationContext* pContext)
 {
-  if (std::is_pod<S>::value == true && (sizeof(S) + sizeof(uint32_t) + DYNA_SERIALIZATION_PACKET_HEADER_RESERVED <= DYNA_SERIALIZATION_FRAGMENT_SIZE))
+  if (std::is_standard_layout<S>::value && std::is_trivial<S>::value && (sizeof(S) + sizeof(uint32_t) + DYNA_SERIALIZATION_PACKET_HEADER_RESERVED <= DYNA_SERIALIZATION_FRAGMENT_SIZE))
   {
     // serialize stuff in chunks with size slightly less than
     // DYNA_SERIALIZATION_FRAGMENT_SIZE and handl it with few memcopy calls
@@ -222,7 +222,7 @@ void Serialize(std::vector<S>& messageVector, SerializationContext* pContext)
 template <typename S>
 void DeSerialize(std::vector<S>& messageVector, SerializationContext* pContext)
 {
-  if (std::is_pod<S>::value == true && (sizeof(S) + sizeof(uint32_t) + DYNA_SERIALIZATION_PACKET_HEADER_RESERVED <= DYNA_SERIALIZATION_FRAGMENT_SIZE))
+  if (std::is_standard_layout<S>::value && std::is_trivial<S>::value && (sizeof(S) + sizeof(uint32_t) + DYNA_SERIALIZATION_PACKET_HEADER_RESERVED <= DYNA_SERIALIZATION_FRAGMENT_SIZE))
   {
     uint64_t vectorSize = 0;
     DeSerialize(vectorSize, pContext);
@@ -249,7 +249,7 @@ void DeSerialize(std::vector<S>& messageVector, SerializationContext* pContext)
 template <typename S>
 void GetSerializeableLength(std::vector<S>& messageVector, uint64_t& messageSize)
 {
-  // TODO: HERE, if ((std::is_pod<S>::value == true) && (sizeof(S) +
+  // TODO: HERE, if ((std::is_standard_layout<S>::value && std::is_trivial<S>::value) && (sizeof(S) +
   // sizeof(uint32_t) < DYNA_SERIALIZATION_FRAGMENT_SIZE)) , serialize stuff in
   // chunks with size slightly less than DYNA_SERIALIZATION_FRAGMENT_SIZE and
   // handl it with few memcopy calls
@@ -259,7 +259,7 @@ void GetSerializeableLength(std::vector<S>& messageVector, uint64_t& messageSize
 template <typename S>
 void SerializeBuffer(std::vector<S>& messageVector, char*& pBuffer, uint64_t& messageSize)
 {
-  if (std::is_pod<S>::value == true)
+  if (std::is_standard_layout<S>::value && std::is_trivial<S>::value)
   {
     uint64_t vectorSize = messageVector.size();
     SerializeBuffer(vectorSize, pBuffer, messageSize);
@@ -279,7 +279,7 @@ void DeSerializeBuffer(std::vector<S>& messageVector, char*& pBuffer)
 {
   // let users clear their own structures
   // messageVector.clear();
-  if (std::is_pod<S>::value == true)
+  if (std::is_standard_layout<S>::value && std::is_trivial<S>::value)
   {
     uint64_t vectorSize = 0;
     DeSerializeBuffer(vectorSize, pBuffer);
@@ -300,7 +300,7 @@ void DeSerializeBuffer(std::vector<S>& messageVector, char*& pBuffer)
 template <typename S, std::size_t N>
 void Serialize(std::array<S, N>& messageArray, SerializationContext* pContext)
 {
-  if (std::is_pod<S>::value == true && (sizeof(S) + sizeof(uint32_t) + DYNA_SERIALIZATION_PACKET_HEADER_RESERVED <= DYNA_SERIALIZATION_FRAGMENT_SIZE))
+  if (std::is_standard_layout<S>::value && std::is_trivial<S>::value && (sizeof(S) + sizeof(uint32_t) + DYNA_SERIALIZATION_PACKET_HEADER_RESERVED <= DYNA_SERIALIZATION_FRAGMENT_SIZE))
   {
     // serialize stuff in chunks with size slightly less than
     // DYNA_SERIALIZATION_FRAGMENT_SIZE and handl it with few memcopy calls
@@ -350,7 +350,7 @@ void Serialize(std::array<S, N>& messageArray, SerializationContext* pContext)
 template <typename S, std::size_t N>
 void DeSerialize(std::array<S, N>& messageArray, SerializationContext* pContext)
 {
-  if (std::is_pod<S>::value == true && (sizeof(S) + sizeof(uint32_t) + DYNA_SERIALIZATION_PACKET_HEADER_RESERVED <= DYNA_SERIALIZATION_FRAGMENT_SIZE))
+  if (std::is_standard_layout<S>::value && std::is_trivial<S>::value && (sizeof(S) + sizeof(uint32_t) + DYNA_SERIALIZATION_PACKET_HEADER_RESERVED <= DYNA_SERIALIZATION_FRAGMENT_SIZE))
   {
     size_t arraySize = N;
     size_t counter = 0;
@@ -372,7 +372,7 @@ void DeSerialize(std::array<S, N>& messageArray, SerializationContext* pContext)
 template <typename S, std::size_t N>
 void GetSerializeableLength(std::array<S, N>& messageArray, uint64_t& messageSize)
 {
-  if (std::is_pod<S>::value == true && (sizeof(S) + sizeof(uint32_t) + DYNA_SERIALIZATION_PACKET_HEADER_RESERVED <= DYNA_SERIALIZATION_FRAGMENT_SIZE))
+  if (std::is_standard_layout<S>::value && std::is_trivial<S>::value && (sizeof(S) + sizeof(uint32_t) + DYNA_SERIALIZATION_PACKET_HEADER_RESERVED <= DYNA_SERIALIZATION_FRAGMENT_SIZE))
   {
     messageSize += N * sizeof(S);
   }
@@ -382,7 +382,7 @@ void GetSerializeableLength(std::array<S, N>& messageArray, uint64_t& messageSiz
 template <typename S, std::size_t N>
 void SerializeBuffer(std::array<S, N>& messageArray, char*& pBuffer, uint64_t& messageSize)
 {
-  if (std::is_pod<S>::value == true)
+  if (std::is_standard_layout<S>::value && std::is_trivial<S>::value)
   {
     std::memcpy(pBuffer, &messageArray[0], sizeof(S) * messageArray.size());
     pBuffer += sizeof(S) * messageArray.size();
@@ -397,7 +397,7 @@ template <typename S, std::size_t N>
 void DeSerializeBuffer(std::array<S, N>& messageArray, char*& pBuffer)
 {
   // let users clear their own structures
-  if (std::is_pod<S>::value == true)
+  if (std::is_standard_layout<S>::value && std::is_trivial<S>::value)
   {
     std::memcpy(&messageArray[0], pBuffer, sizeof(S) * messageArray.size());
     pBuffer += sizeof(S) * messageArray.size();
@@ -411,7 +411,7 @@ void DeSerializeBuffer(std::array<S, N>& messageArray, char*& pBuffer)
 template <typename S, int N>
 void Serialize(S (&messageArray)[N], SerializationContext* pContext)
 {
-  if (std::is_pod<S>::value == true && (sizeof(S) + sizeof(uint32_t) + DYNA_SERIALIZATION_PACKET_HEADER_RESERVED <= DYNA_SERIALIZATION_FRAGMENT_SIZE))
+  if (std::is_standard_layout<S>::value && std::is_trivial<S>::value && (sizeof(S) + sizeof(uint32_t) + DYNA_SERIALIZATION_PACKET_HEADER_RESERVED <= DYNA_SERIALIZATION_FRAGMENT_SIZE))
   {
     // serialize stuff in chunks with size slightly less than
     // DYNA_SERIALIZATION_FRAGMENT_SIZE and handl it with few memcopy calls
@@ -461,7 +461,7 @@ void Serialize(S (&messageArray)[N], SerializationContext* pContext)
 template <typename S, int N>
 void DeSerialize(S (&messageArray)[N], SerializationContext* pContext)
 {
-  if (std::is_pod<S>::value == true && (sizeof(S) + sizeof(uint32_t) + DYNA_SERIALIZATION_PACKET_HEADER_RESERVED <= DYNA_SERIALIZATION_FRAGMENT_SIZE))
+  if (std::is_standard_layout<S>::value && std::is_trivial<S>::value && (sizeof(S) + sizeof(uint32_t) + DYNA_SERIALIZATION_PACKET_HEADER_RESERVED <= DYNA_SERIALIZATION_FRAGMENT_SIZE))
   {
     size_t arraySize = N;
     size_t counter = 0;
@@ -483,7 +483,7 @@ void DeSerialize(S (&messageArray)[N], SerializationContext* pContext)
 template <typename S, int N>
 void GetSerializeableLength(S (&messageArray)[N], uint64_t& messageSize)
 {
-  if (std::is_pod<S>::value == true && (sizeof(S) + sizeof(uint32_t) + DYNA_SERIALIZATION_PACKET_HEADER_RESERVED <= DYNA_SERIALIZATION_FRAGMENT_SIZE))
+  if (std::is_standard_layout<S>::value && std::is_trivial<S>::value && (sizeof(S) + sizeof(uint32_t) + DYNA_SERIALIZATION_PACKET_HEADER_RESERVED <= DYNA_SERIALIZATION_FRAGMENT_SIZE))
   {
     messageSize += N * sizeof(S);
   }
@@ -493,7 +493,7 @@ void GetSerializeableLength(S (&messageArray)[N], uint64_t& messageSize)
 template <typename S, int N>
 void SerializeBuffer(S (&messageArray)[N], char*& pBuffer, uint64_t& messageSize)
 {
-  if (std::is_pod<S>::value == true)
+  if (std::is_standard_layout<S>::value && std::is_trivial<S>::value)
   {
     std::memcpy(pBuffer, messageArray, sizeof(S) * N);
     pBuffer += sizeof(S) * N;
@@ -505,7 +505,7 @@ void SerializeBuffer(S (&messageArray)[N], char*& pBuffer, uint64_t& messageSize
 template <typename S, int N>
 void DeSerializeBuffer(S (&messageArray)[N], char*& pBuffer)
 {
-  if (std::is_pod<S>::value == true)
+  if (std::is_standard_layout<S>::value && std::is_trivial<S>::value)
   {
     std::memcpy(messageArray, pBuffer, sizeof(S) * N);
     pBuffer += sizeof(S) * N;
@@ -517,7 +517,7 @@ void DeSerializeBuffer(S (&messageArray)[N], char*& pBuffer)
 template <typename S>
 void Serialize(S* messageArray, uint64_t& numElements, SerializationContext* pContext)
 {
-  // TODO: HERE, if ((std::is_pod<S>::value == true) && (sizeof(S) +
+  // TODO: HERE, if ((std::is_standard_layout<S>::value && std::is_trivial<S>::value) && (sizeof(S) +
   // sizeof(uint32_t) < DYNA_SERIALIZATION_FRAGMENT_SIZE)) , serialize stuff in
   // chunks with size slightly less than DYNA_SERIALIZATION_FRAGMENT_SIZE and
   // handl it with few memcopy calls
@@ -528,7 +528,7 @@ void Serialize(S* messageArray, uint64_t& numElements, SerializationContext* pCo
 template <typename S>
 void DeSerialize(S* messageArray, uint64_t& numElements, SerializationContext* pContext)
 {
-  // TODO: HERE, if ((std::is_pod<S>::value == true) && (sizeof(S) +
+  // TODO: HERE, if ((std::is_standard_layout<S>::value && std::is_trivial<S>::value) && (sizeof(S) +
   // sizeof(uint32_t) < DYNA_SERIALIZATION_FRAGMENT_SIZE)) , serialize stuff in
   // chunks with size slightly less than DYNA_SERIALIZATION_FRAGMENT_SIZE and
   // handl it with few memcopy calls
@@ -539,7 +539,7 @@ void DeSerialize(S* messageArray, uint64_t& numElements, SerializationContext* p
 template <typename S>
 void GetSerializeableLength(S* messageArray, uint64_t& numElements, uint64_t& messageSize)
 {
-  // TODO: HERE, if ((std::is_pod<S>::value == true) && (sizeof(S) +
+  // TODO: HERE, if ((std::is_standard_layout<S>::value && std::is_trivial<S>::value) && (sizeof(S) +
   // sizeof(uint32_t) < DYNA_SERIALIZATION_FRAGMENT_SIZE)) , serialize stuff in
   // chunks with size slightly less than DYNA_SERIALIZATION_FRAGMENT_SIZE and
   // handl it with few memcopy calls
@@ -548,7 +548,7 @@ void GetSerializeableLength(S* messageArray, uint64_t& numElements, uint64_t& me
 template <typename S>
 void SerializeBuffer(S* messageArray, uint64_t& numElements, char*& pBuffer, uint64_t& messageSize)
 {
-  if (std::is_pod<S>::value == true)
+  if (std::is_standard_layout<S>::value && std::is_trivial<S>::value)
   {
     SerializeBuffer(numElements, pBuffer, messageSize);
     std::memcpy(pBuffer, messageArray, sizeof(S) * numElements);
@@ -564,7 +564,7 @@ void SerializeBuffer(S* messageArray, uint64_t& numElements, char*& pBuffer, uin
 template <typename S>
 void DeSerializeBuffer(S* messageArray, uint64_t& numElements, char*& pBuffer)
 {
-  if (std::is_pod<S>::value == true)
+  if (std::is_standard_layout<S>::value && std::is_trivial<S>::value)
   {
     // let users clear their own structures
     // delete[] messageArray;
