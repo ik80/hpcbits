@@ -48,7 +48,8 @@ struct CantStopHashMap
         // unsigned char bitmap[SLOTS_PER_BUCKET / CHAR_BIT] = {0}; 
 
         std::vector<value_type> elements;                        // 24
-        //std::deque<value_type> elements;                        // 24
+        //std::deque<value_type> elements;                       // 80 use this to get iterator stability
+        //std::vector<unsigned char> free_slots;                 // 24
         std::vector<unsigned char> slots;                        // 24
         unsigned char bitmap[SLOTS_PER_BUCKET / CHAR_BIT] = {0}; // 80
 
