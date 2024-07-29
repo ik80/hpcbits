@@ -446,3 +446,4 @@ void swap(BitmapTree<T> &lhs, BitmapTree<T> &rhs)
 // TODO: autoincrement value would just be found by looking any zero in bmpt bitmap structure, also in NLog512(N) time, keeping it always < size of the table
 // TODO: excessive memory usage for bitmap can be actually done using same approach as values - hashmaps to bitmap pieces on all levels of bitmap tree
 // TODO: to use thread_local cached chunks, LF hash of tid->idx is needed in the class instance
+// TODO: to get iterator stability, change storage from vector to deque + indexing/slots array
