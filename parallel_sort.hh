@@ -75,6 +75,39 @@ void ugh_qsort_insertion(std::vector<T>& to_sort, size_t lo, size_t hi)
 }
 
 template <typename T>
+void ugh_qsort_heap(std::vector<T>& to_sort, size_t lo, size_t hi)
+{
+    size_t count = hi - lo + 1;
+    size_t start = count >> 1;
+    size_t end = count;
+    while (end > 1) 
+    {
+      if (start > 0) 
+        --start;
+      else 
+      {
+        --end;
+        std::swap(to_sort[lo + end], to_sort[lo]);
+      }
+      size_t root = start;
+      while(2*root + 1 < end) 
+      {
+        size_t child = 2*root + 1;
+        if (child + 1 < end && to_sort[lo + child] < to_sort[lo +child+1]) 
+          ++child;
+        
+        if (to_sort[lo + root] < to_sort[lo + child]) 
+        {
+          std::swap(to_sort[lo + root], to_sort[lo + child]);
+          root = child;
+        }
+        else
+          break;
+      }
+    }
+}
+
+template <typename T>
 void ugh_qsort(std::vector<T>& to_sort, size_t lo, size_t hi)
 {
   if (lo >= 0 && hi >= 0 && lo < hi) 
