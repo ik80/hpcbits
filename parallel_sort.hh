@@ -14,10 +14,11 @@
   to sort each region and afterwards uses std::inplace_merge to merge sorted regions.
   This happily consumes up to x2 memory during inplace_merge
 
-  The former, "ugh_sort_parallel" is an implementation of parallel introsort with 
+  The former, "ugh_sort_parallel" is an implementation of parallel in-place introsort with 
   algorithms taken directly from wikipedia. Pivot selection is "best of 5". This has 
   almost the same speed as the above, and uses no extra memory, but is a lot more code.
-  Introsort itself is ~10% slower than std::sort.
+  Insertion or heap sorts are available on last stage.
+  Introsort itself is ~10% slower than std::sort
 
   On 16 core AMD CPU speedup is roughly x5.85 for the former sort. */
 
@@ -114,7 +115,7 @@ void ugh_qsort(std::vector<T>& to_sort, size_t lo, size_t hi)
   {
     if ((sizeof(T)*(hi - lo + 1)) <= 64) // cacheline 
     {
-      ugh_qsort_insertion(to_sort, lo, hi);
+      ugh_qsort_heap(to_sort, lo, hi);
     }
     else 
     {
@@ -128,12 +129,13 @@ void ugh_qsort(std::vector<T>& to_sort, size_t lo, size_t hi)
 template <typename T>
 inline void ugh_sort(std::vector<T>& to_sort)
 {
+  if (to_sort.empty())
+    return;
   ugh_qsort(to_sort, 0, to_sort.size()-1);
 }
 
-// TODO: first steps are always the longest. this can be parallelized by processing same range using multiple threads that work on to_sort[i*num_threads + threadnum] items
 template <typename T>
-void ugh_qsort_parallel(std::vector<T>& to_sort, std::deque<std::pair<size_t, size_t>>& tasks, std::mutex& mx, std::condition_variable& cv, size_t& latch)
+void ugh_qsort_parallel(std::vector<T>& to_sort, std::deque<std::pair<size_t, size_t>>& tasks, std::mutex& mx, std::condition_variable& cv, size_t& latch, size_t &num_threads)
 {
   while (true) 
   {
@@ -169,10 +171,9 @@ void ugh_qsort_parallel(std::vector<T>& to_sort, std::deque<std::pair<size_t, si
     size_t hi = work.second;
     if (lo >= 0 && hi >= 0 && lo < hi) 
     {
-      if (hi - lo < (to_sort.size() / 32)) 
+      if (hi - lo < (to_sort.size() / num_threads)) 
       {
         ugh_qsort(to_sort, lo, hi);
-        // std::sort(to_sort.begin() + lo, to_sort.begin() + hi +1);
         {
           std::unique_lock<std::mutex> guard(mx);
           if (latch)
@@ -181,7 +182,7 @@ void ugh_qsort_parallel(std::vector<T>& to_sort, std::deque<std::pair<size_t, si
       }
       else if ((sizeof(T)*(hi - lo + 1)) <= 64) // cacheline 
       {
-        ugh_qsort_insertion(to_sort, lo, hi);
+        ugh_qsort_heap(to_sort, lo, hi);
         {
           std::unique_lock<std::mutex> guard(mx);
           if (latch)
@@ -231,7 +232,7 @@ inline void ugh_sort_parallel(std::vector<T>& to_sort, size_t num_threads = 0/*0
   std::condition_variable cv;
   tasks.push_front({0, to_sort.size()-1});
   for (size_t i = 0; i < num_threads; ++i)
-      workers.emplace_back(new std::thread([&](){ ugh_qsort_parallel(to_sort, tasks, mx, cv, latch); }));
+      workers.emplace_back(new std::thread([&](){ ugh_qsort_parallel(to_sort, tasks, mx, cv, latch, num_threads); }));
   // join threads
   for (auto& worker : workers)
       worker->join();
