@@ -22,8 +22,70 @@
 
   On 16 core AMD CPU speedup is roughly x5.85 for the former sort. */
 
+// QSORT
+// // Sorts a (portion of an) array, divides it into partitions, then sorts those
+// algorithm quicksort(A, lo, hi) is 
+//   if lo >= 0 && hi >= 0 && lo < hi then
+//     p := partition(A, lo, hi) 
+//     quicksort(A, lo, p) // Note: the pivot is now included
+//     quicksort(A, p + 1, hi) 
+// // Divides array into two partitions
+// algorithm partition(A, lo, hi) is 
+//   // Pivot value
+//   pivot := A[lo] // Choose the first element as the pivot
+//   // Left index
+//   i := lo - 1 
+//   // Right index
+//   j := hi + 1
+//   loop forever 
+//     // Move the left index to the right at least once and while the element at
+//     // the left index is less than the pivot
+//     do i := i + 1 while A[i] < pivot
+//     // Move the right index to the left at least once and while the element at
+//     // the right index is greater than the pivot
+//     do j := j - 1 while A[j] > pivot
+//     // If the indices crossed, return
+//     if i >= j then return j
+//     // Swap the elements at the left and right indices
+//     swap A[i] with A[j]
+
+// INSERTION SORT
+// i ← 1
+// while i < length(A)
+//     j ← i
+//     while j > 0 and A[j-1] > A[j]
+//         swap A[j] and A[j-1]
+//         j ← j - 1
+//     end while
+//     i ← i + 1
+// end while
+
+// HEAP SORT
+// procedure heapsort(a, count) is
+//     input: an unordered array a of length count
+//     start ← floor(count/2)
+//     end ← count
+//     while end > 1 do
+//         if start > 0 then    (Heap construction)
+//             start ← start − 1
+//         else                 (Heap extraction)
+//             end ← end − 1
+//             swap(a[end], a[0])
+//         (The following is siftDown(a, start, end))
+//         root ← start
+//         while iLeftChild(root) < end do
+//             child ← iLeftChild(root)
+//             (If there is a right child and that child is greater)
+//             if child+1 < end and a[child] < a[child+1] then
+//                 child ← child + 1
+//             if a[root] < a[child] then
+//                 swap(a[root], a[child])
+//                 root ← child         (repeat to continue sifting down the child now)
+//             else
+//                 break                (return to outer loop)
+
 template<typename T>
-void __attribute__((always_inline)) ugh_swap_if_less(T* lhs, T* rhs) noexcept
+void ugh_swap_if_greater(T* lhs, T* rhs) noexcept
 {
     if (*lhs > *rhs)
         std::swap(*lhs, *rhs);
@@ -32,19 +94,20 @@ void __attribute__((always_inline)) ugh_swap_if_less(T* lhs, T* rhs) noexcept
 template <typename T>
 size_t ugh_qsort_partition(std::vector<T>& to_sort, size_t lo, size_t hi)
 {
-  // best of 5 pivot
   const size_t mid = lo + ((hi - lo) >> 1);
   const size_t lmid = lo + ((mid - lo) >> 1);
   const size_t rmid = mid + ((hi - mid) >> 1);
-  ugh_swap_if_less(&(to_sort[lo]), &(to_sort[lmid]));
-  ugh_swap_if_less(&(to_sort[rmid]), &(to_sort[hi]));
-  ugh_swap_if_less(&(to_sort[mid]), &(to_sort[hi]));
-  ugh_swap_if_less(&(to_sort[mid]), &(to_sort[rmid]));
-  ugh_swap_if_less(&(to_sort[lo]), &(to_sort[rmid]));
-  ugh_swap_if_less(&(to_sort[lo]), &(to_sort[mid]));
-  ugh_swap_if_less(&(to_sort[lmid]), &(to_sort[hi]));
-  ugh_swap_if_less(&(to_sort[lmid]), &(to_sort[rmid]));
-  ugh_swap_if_less(&(to_sort[lmid]), &(to_sort[mid]));
+
+  ugh_swap_if_greater(&(to_sort[lo]), &(to_sort[lmid]));
+  ugh_swap_if_greater(&(to_sort[rmid]), &(to_sort[hi]));
+  ugh_swap_if_greater(&(to_sort[mid]), &(to_sort[hi]));
+  ugh_swap_if_greater(&(to_sort[mid]), &(to_sort[rmid]));
+  ugh_swap_if_greater(&(to_sort[lo]), &(to_sort[rmid]));
+  ugh_swap_if_greater(&(to_sort[lo]), &(to_sort[mid]));
+  ugh_swap_if_greater(&(to_sort[lmid]), &(to_sort[hi]));
+  ugh_swap_if_greater(&(to_sort[lmid]), &(to_sort[rmid]));
+  ugh_swap_if_greater(&(to_sort[lmid]), &(to_sort[mid]));
+
   T pivot = to_sort[mid];
 
   size_t i = lo - 1;
@@ -60,25 +123,9 @@ size_t ugh_qsort_partition(std::vector<T>& to_sort, size_t lo, size_t hi)
 }
 
 template <typename T>
-void ugh_qsort_insertion(std::vector<T>& to_sort, size_t lo, size_t hi)
-{
-  size_t i = 1;
-  while (lo + i <= hi) 
-  {
-    size_t j = i;
-    while (j > 0 && to_sort[lo + j-1] > to_sort[lo + j])
-    {
-      std::swap(to_sort[lo + j-1], to_sort[lo + j]);
-      --j;
-    }
-    ++i;
-  }
-}
-
-template <typename T>
 void ugh_qsort_heap(std::vector<T>& to_sort, size_t lo, size_t hi)
 {
-    size_t count = hi - lo + 1;
+    int count = hi - lo + 1;
     size_t start = count >> 1;
     size_t end = count;
     while (end > 1) 
@@ -109,11 +156,27 @@ void ugh_qsort_heap(std::vector<T>& to_sort, size_t lo, size_t hi)
 }
 
 template <typename T>
+void ugh_qsort_insertion(std::vector<T>& to_sort, size_t lo, size_t hi)
+{
+  size_t i = 1;
+  while (lo + i <= hi) 
+  {
+    size_t j = i;
+    while (j > 0 && to_sort[lo + j-1] > to_sort[lo + j])
+    {
+      std::swap(to_sort[lo + j-1], to_sort[lo + j]);
+      --j;
+    }
+    ++i;
+  }
+}
+
+template <typename T>
 void ugh_qsort(std::vector<T>& to_sort, size_t lo, size_t hi)
 {
   if (lo >= 0 && hi >= 0 && lo < hi) 
   {
-    if ((sizeof(T)*(hi - lo + 1)) <= 64) // cacheline 
+    if ((sizeof(T)*(hi - lo + 1)) <= 64) // cacheline
     {
       ugh_qsort_heap(to_sort, lo, hi);
     }
@@ -180,7 +243,7 @@ void ugh_qsort_parallel(std::vector<T>& to_sort, std::deque<std::pair<size_t, si
             --latch;
         }
       }
-      else if ((sizeof(T)*(hi - lo + 1)) <= 64) // cacheline 
+      else if ((sizeof(T)*(hi - lo + 1)) <= 64) // cacheline
       {
         ugh_qsort_heap(to_sort, lo, hi);
         {
@@ -194,15 +257,8 @@ void ugh_qsort_parallel(std::vector<T>& to_sort, std::deque<std::pair<size_t, si
         size_t p = ugh_qsort_partition(to_sort,lo,hi);
         {
           std::unique_lock<std::mutex> guard(mx);
-          // let partition steps be the first and insertsort last 
-          if ((sizeof(T)*(hi - p)) <= 64) 
-            tasks.push_front({p+1, hi});  
-          else
-            tasks.push_back({p+1, hi});
-          if ((sizeof(T)*(p - lo)) <= 64)
-            tasks.push_front({lo, p});  
-          else
-            tasks.push_back({lo, p});
+          tasks.push_back({p+1, hi});
+          tasks.push_back({lo, p});
           cv.notify_one();
           if (latch)
             --latch;
@@ -216,6 +272,27 @@ void ugh_qsort_parallel(std::vector<T>& to_sort, std::deque<std::pair<size_t, si
         --latch;
     }
   }
+}
+
+template <typename T>
+inline void ugh_sort_parallel(std::vector<T>& to_sort, size_t num_threads = 0/*0 means all available cores*/)
+{
+  // set up thread pool, queue and synchronization
+  if (!num_threads)
+    num_threads = std::thread::hardware_concurrency();
+  size_t latch = 0; // latch is number of active threads
+  // start all threads push array into the queue
+  std::vector<std::shared_ptr<std::thread>> workers;
+  std::deque<std::pair<size_t, size_t>> tasks;
+  std::mutex mx;
+  std::condition_variable cv;
+  tasks.push_front({0, to_sort.size()-1});
+  for (size_t i = 0; i < num_threads; ++i)
+      workers.emplace_back(new std::thread([&](){ ugh_qsort_parallel(to_sort, tasks, mx, cv, latch, num_threads); }));
+  // join threads
+  for (auto& worker : workers)
+      worker->join();
+  workers.clear();
 }
 
 template <typename T>
