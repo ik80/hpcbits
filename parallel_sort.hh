@@ -94,6 +94,11 @@ void ugh_swap_if_greater(T* lhs, T* rhs) noexcept
 template <typename T>
 size_t ugh_qsort_partition(std::vector<T>& to_sort, size_t lo, size_t hi)
 {
+  // best of 5 pivot is still quite bad
+  // since we're reaching for memory anyway 
+  // we can sort 5 caheline sized regions to take 
+  // better mean
+
   const size_t mid = lo + ((hi - lo) >> 1);
   const size_t lmid = lo + ((mid - lo) >> 1);
   const size_t rmid = mid + ((hi - mid) >> 1);
@@ -114,8 +119,27 @@ size_t ugh_qsort_partition(std::vector<T>& to_sort, size_t lo, size_t hi)
   size_t j = hi + 1;
   while(true) 
   {
-    do i+=1; while(to_sort[i] < pivot);
-    do j-=1; while(to_sort[j] > pivot);
+    // code below basically does this, but in a more optimized way
+    // do i+=1; while(to_sort[i] < pivot);
+    // do j-=1; while(to_sort[j] > pivot);
+    ++i;
+    --j;
+    while (true) 
+    {
+      bool changed = false;
+      if (to_sort[i] < pivot) 
+      {
+        changed = true;
+        ++i;
+      }
+      if (to_sort[j] > pivot)
+      {
+        changed = true;
+        --j;
+      }
+      if (!changed)
+        break;
+    }
     if (i >= j)
       return j;
     std::swap(to_sort[i], to_sort[j]);
@@ -284,47 +308,4 @@ inline void ugh_sort_parallel(std::vector<T>& to_sort, size_t num_threads = 0/*0
   for (auto& worker : workers)
       worker->join();
   workers.clear();
-}
-
-// merge sorted ranges in place
-template <typename T>
-void vector_parallel_sort(std::vector<T>& to_sort, int threads)
-{
-    // merger must be kept sorted in descedning order
-    std::vector<std::pair<typename std::vector<T>::iterator, typename std::vector<T>::iterator>> regions;
-
-    size_t numRegions = std::thread::hardware_concurrency();
-    if (threads) numRegions = threads;
-    size_t regionSize = to_sort.size() / numRegions;
-
-    std::vector<std::shared_ptr<std::thread>> workers;
-    workers.reserve(numRegions + 1); // haha cant touch this 
-    regions.reserve(numRegions + 1); // haha cant touch this 
-
-    for (size_t region = 0; region < numRegions; ++region)
-        regions.push_back(std::make_pair(to_sort.begin() + region * regionSize, to_sort.begin() + (region + 1) * regionSize));
-    if (to_sort.size() % regionSize)
-        regions.back().second = to_sort.end();
-
-    for (auto& region : regions)
-        workers.emplace_back(new std::thread([&]() {std::sort(region.first, region.second); }));
-    for (auto& worker : workers)
-        worker->join();
-    workers.clear();
-
-    while (regions.size() > 1)
-    {
-        std::vector<std::pair<typename std::vector<T>::iterator, typename std::vector<T>::iterator>> nextRegions;
-        for (size_t i = 0; i < regions.size() - 1; i += 2)
-        {
-            workers.emplace_back(new std::thread([&regions, i]() {std::inplace_merge(regions[i].first, regions[i].second, regions[i + 1].second); }));
-            nextRegions.push_back(std::make_pair(regions[i].first, regions[i + 1].second));
-        }
-        if (regions.size() % 2)
-            nextRegions.push_back(std::make_pair(regions.back().first, regions.back().second));
-        for (auto& worker : workers)
-            worker->join();
-        workers.clear();
-        regions = nextRegions;
-    }
 }
