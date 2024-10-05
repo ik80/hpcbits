@@ -198,7 +198,7 @@ inline void ugh_sort(std::vector<T>& to_sort)
 }
 
 template <typename T>
-void ugh_qsort_parallel(std::vector<T>& to_sort, std::deque<std::pair<size_t, size_t>>& tasks, std::mutex& mx, std::condition_variable& cv, size_t& latch, size_t &num_threads)
+void ugh_qsort_parallel(std::vector<T>& to_sort, std::deque<std::pair<size_t, size_t>>& tasks, std::mutex& mx, std::condition_variable& cv, size_t& latch)
 {
   while (true) 
   {
@@ -219,6 +219,8 @@ void ugh_qsort_parallel(std::vector<T>& to_sort, std::deque<std::pair<size_t, si
         ++latch;
         work = tasks.front(); // take a bit of work
         tasks.pop_front();
+        if (!tasks.empty()) // still more work, wake someone up
+          cv.notify_one(); 
       }
       else if (tasks.empty())
       {
@@ -232,44 +234,33 @@ void ugh_qsort_parallel(std::vector<T>& to_sort, std::deque<std::pair<size_t, si
     }
     size_t lo = work.first;
     size_t hi = work.second;
-    if (lo >= 0 && hi >= 0 && lo < hi) 
+    if ((sizeof(T)*(hi - lo + 1)) <= 1024*1024) // typical L2 size
     {
-      if (hi - lo < (to_sort.size() / num_threads)) 
+      ugh_qsort(to_sort, lo, hi);
       {
-        ugh_qsort(to_sort, lo, hi);
-        {
-          std::unique_lock<std::mutex> guard(mx);
-          if (latch)
-            --latch;
-        }
-      }
-      else if ((sizeof(T)*(hi - lo + 1)) <= 64) // cacheline
-      {
-        ugh_qsort_heap(to_sort, lo, hi);
-        {
-          std::unique_lock<std::mutex> guard(mx);
-          if (latch)
-            --latch;
-        }
-      }
-      else 
-      {
-        size_t p = ugh_qsort_partition(to_sort,lo,hi);
-        {
-          std::unique_lock<std::mutex> guard(mx);
-          tasks.push_back({p+1, hi});
-          tasks.push_back({lo, p});
-          cv.notify_one();
-          if (latch)
-            --latch;
-        }
+        std::unique_lock<std::mutex> guard(mx);
+        if (latch)
+          --latch;
       }
     }
-    else
+    else 
     {
-      std::unique_lock<std::mutex> guard(mx);
-      if (latch)
-        --latch;
+      size_t p = ugh_qsort_partition(to_sort,lo,hi);
+      {
+        std::unique_lock<std::mutex> guard(mx);
+        if (p > (hi - lo)>>2) // work next on smaller part, let others deal with bigger 
+        {
+          tasks.push_front({p+1, hi});
+          tasks.push_back({lo, p});
+        }
+        else 
+        {
+          tasks.push_back({p+1, hi});
+          tasks.push_front({lo, p});
+        }
+        if (latch)
+          --latch;
+      }
     }
   }
 }
@@ -288,13 +279,12 @@ inline void ugh_sort_parallel(std::vector<T>& to_sort, size_t num_threads = 0/*0
   std::condition_variable cv;
   tasks.push_front({0, to_sort.size()-1});
   for (size_t i = 0; i < num_threads; ++i)
-      workers.emplace_back(new std::thread([&](){ ugh_qsort_parallel(to_sort, tasks, mx, cv, latch, num_threads); }));
+      workers.emplace_back(new std::thread([&](){ ugh_qsort_parallel(to_sort, tasks, mx, cv, latch); }));
   // join threads
   for (auto& worker : workers)
       worker->join();
   workers.clear();
 }
-
 
 // merge sorted ranges in place
 template <typename T>
