@@ -295,26 +295,6 @@ inline void ugh_sort_parallel(std::vector<T>& to_sort, size_t num_threads = 0/*0
   workers.clear();
 }
 
-template <typename T>
-inline void ugh_sort_parallel(std::vector<T>& to_sort, size_t num_threads = 0/*0 means all available cores*/)
-{
-  // set up thread pool, queue and synchronization
-  if (!num_threads)
-    num_threads = std::thread::hardware_concurrency();
-  size_t latch = 0; // latch is number of active threads
-  // start all threads push array into the queue
-  std::vector<std::shared_ptr<std::thread>> workers;
-  std::deque<std::pair<size_t, size_t>> tasks;
-  std::mutex mx;
-  std::condition_variable cv;
-  tasks.push_front({0, to_sort.size()-1});
-  for (size_t i = 0; i < num_threads; ++i)
-      workers.emplace_back(new std::thread([&](){ ugh_qsort_parallel(to_sort, tasks, mx, cv, latch, num_threads); }));
-  // join threads
-  for (auto& worker : workers)
-      worker->join();
-  workers.clear();
-}
 
 // merge sorted ranges in place
 template <typename T>
