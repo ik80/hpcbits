@@ -2,6 +2,8 @@
 
 // Sorting Networks generator by http://jgamble.ripco.net/cgi-bin/nw.cgi?inputs=32&algorithm=best&output=svg
 
+// More indepth description and best specimen https://bertdobbelaere.github.io/sorting_networks.html
+
 namespace
 {
     template <typename T>
