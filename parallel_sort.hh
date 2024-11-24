@@ -84,12 +84,32 @@
 //             else
 //                 break                (return to outer loop)
 
-template<typename T>
-void ugh_swap_if_greater(T* lhs, T* rhs) noexcept
+
+template<typename T> 
+void ugh_swap_if_greater(T& lhs, T& rhs) noexcept
 {
-    if (*lhs > *rhs)
-        std::swap(*lhs, *rhs);
+    if (lhs > rhs)
+        std::swap(lhs, rhs);
 }
+
+// Below code needs profiling
+// // For all types except integral types:
+// template<typename T>
+// std::enable_if_t<!std::is_integral_v<T>> ugh_swap_if_greater(T& lhs, T& rhs) noexcept
+// {
+//     if (lhs > rhs)
+//         std::swap(lhs, rhs);
+// }
+
+// // For integral types only:
+// template<typename T>
+// std::enable_if_t<std::is_integral_v<T>> ugh_swap_if_greater(T& lhs, T& rhs) noexcept
+// {
+//     T tlhs = rhs ^ ((lhs ^ rhs) & - (lhs < rhs)); // bit twiddling hacks min(x, y)
+//     T trhs = lhs ^ ((lhs ^ rhs) & - (lhs < rhs)); // bit twiddling hacks max(x, y)
+//     lhs = tlhs;
+//     rhs = trhs;
+// }
 
 template <typename T>
 size_t ugh_qsort_partition(std::vector<T>& to_sort, size_t lo, size_t hi)
@@ -103,15 +123,15 @@ size_t ugh_qsort_partition(std::vector<T>& to_sort, size_t lo, size_t hi)
   const size_t lmid = lo + ((mid - lo) >> 1);
   const size_t rmid = mid + ((hi - mid) >> 1);
 
-  ugh_swap_if_greater(&(to_sort[lo]), &(to_sort[lmid]));
-  ugh_swap_if_greater(&(to_sort[rmid]), &(to_sort[hi]));
-  ugh_swap_if_greater(&(to_sort[mid]), &(to_sort[hi]));
-  ugh_swap_if_greater(&(to_sort[mid]), &(to_sort[rmid]));
-  ugh_swap_if_greater(&(to_sort[lo]), &(to_sort[rmid]));
-  ugh_swap_if_greater(&(to_sort[lo]), &(to_sort[mid]));
-  ugh_swap_if_greater(&(to_sort[lmid]), &(to_sort[hi]));
-  ugh_swap_if_greater(&(to_sort[lmid]), &(to_sort[rmid]));
-  ugh_swap_if_greater(&(to_sort[lmid]), &(to_sort[mid]));
+  ugh_swap_if_greater(to_sort[lo], to_sort[lmid]);
+  ugh_swap_if_greater(to_sort[rmid], to_sort[hi]);
+  ugh_swap_if_greater(to_sort[mid], to_sort[hi]);
+  ugh_swap_if_greater(to_sort[mid], to_sort[rmid]);
+  ugh_swap_if_greater(to_sort[lo], to_sort[rmid]);
+  ugh_swap_if_greater(to_sort[lo], to_sort[mid]);
+  ugh_swap_if_greater(to_sort[lmid], to_sort[hi]);
+  ugh_swap_if_greater(to_sort[lmid], to_sort[rmid]);
+  ugh_swap_if_greater(to_sort[lmid], to_sort[mid]);
 
   T pivot = to_sort[mid];
 
