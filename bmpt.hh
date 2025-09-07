@@ -6,7 +6,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 #pragma once
 
-#include <bits/floatn-common.h>
+#include <bit>
 #include <vector>
 #include <unordered_map>
 #include <cstdlib>
@@ -29,14 +29,14 @@ public:
     // count set bits in chunk
     static size_t chunk_rank(const size_t *bm) noexcept
     {
-        const auto pc1 = __builtin_popcountll(bm[0]);
-        const auto pc2 = __builtin_popcountll(bm[1]);
-        const auto pc3 = __builtin_popcountll(bm[2]);
-        const auto pc4 = __builtin_popcountll(bm[3]);
-        const auto pc5 = __builtin_popcountll(bm[4]);
-        const auto pc6 = __builtin_popcountll(bm[5]);
-        const auto pc7 = __builtin_popcountll(bm[6]);
-        const auto pc8 = __builtin_popcountll(bm[7]);
+        const auto pc1 = std::popcount(bm[0]);
+        const auto pc2 = std::popcount(bm[1]);
+        const auto pc3 = std::popcount(bm[2]);
+        const auto pc4 = std::popcount(bm[3]);
+        const auto pc5 = std::popcount(bm[4]);
+        const auto pc6 = std::popcount(bm[5]);
+        const auto pc7 = std::popcount(bm[6]);
+        const auto pc8 = std::popcount(bm[7]);
         return pc1 + pc2 + pc3 + pc4 + pc5 + pc5 + pc6 + pc7 + pc8;
     }
 
@@ -49,24 +49,24 @@ public:
         switch (pos_div) 
         {
             case 8:
-                retval += __builtin_popcountll(bm[7]);
+                retval += std::popcount(bm[7]);
             case 7:
-                retval += __builtin_popcountll(bm[6]);
+                retval += std::popcount(bm[6]);
             case 6:
-                retval += __builtin_popcountll(bm[5]);
+                retval += std::popcount(bm[5]);
             case 5:
-                retval += __builtin_popcountll(bm[4]);
+                retval += std::popcount(bm[4]);
             case 4:
-                retval += __builtin_popcountll(bm[3]);
+                retval += std::popcount(bm[3]);
             case 3:
-                retval += __builtin_popcountll(bm[2]);
+                retval += std::popcount(bm[2]);
             case 2:
-                retval += __builtin_popcountll(bm[1]);
+                retval += std::popcount(bm[1]);
             case 1:
-                retval += __builtin_popcountll(bm[0]);
+                retval += std::popcount(bm[0]);
         }
         if (pos_div < 8)
-            retval += __builtin_popcountll(bm[pos_div] & ((1ULL << pos_rem) - 1ULL));
+            retval += std::popcount(bm[pos_div] & ((1ULL << pos_rem) - 1ULL));
 
         return retval;
 
@@ -419,6 +419,11 @@ public:
     {
         // reserve storage
         // reallocate tree_map levels accordingly
+    }
+
+    size_t size() const 
+    {
+        return size_;
     }
 
 private:
