@@ -307,7 +307,7 @@ public:
             return -1; // nothing ahead
         //select next bit set after idx
         const size_t cur_qword = (tree_map[cur_level][idx / QWORD_BITS + step_hint]) & (!step_hint ? ((((size_t) (-1)) << (idx % QWORD_BITS + 1))) : (size_t)-1 );
-        idx += __builtin_ctzll(cur_qword) - idx % QWORD_BITS + QWORD_BITS*step_hint;
+        idx += std::countr_zero(cur_qword) - idx % QWORD_BITS + QWORD_BITS*step_hint;
         // go down to lowest level
         while(cur_level != tree_levels_ - 1)
         {
@@ -327,7 +327,7 @@ public:
                         break;
                 }
             }
-            idx += __builtin_ctzll(tree_map[cur_level][(idx - idx % CHUNK_SIZE) / QWORD_BITS + step_hint]);
+            idx += std::countr_zero(tree_map[cur_level][(idx - idx % CHUNK_SIZE) / QWORD_BITS + step_hint]);
         }
         return idx;
     }
@@ -378,7 +378,7 @@ public:
             return -1; // nothing ahead
         //select next bit set after idx
         const size_t cur_qword = (tree_map[cur_level][idx / QWORD_BITS + step_hint]) & (!step_hint ? ((((size_t) (-1)) >> (64ULL - (idx % QWORD_BITS + 1)))) : (size_t)-1 );
-        idx += __builtin_clzll(cur_qword) - idx % QWORD_BITS - QWORD_BITS*step_hint;
+        idx += std::countl_zero(cur_qword) - idx % QWORD_BITS - QWORD_BITS*step_hint;
         // go down to lowest level
         while(cur_level != tree_levels_ - 1)
         {
@@ -398,7 +398,7 @@ public:
                         break;
                 }
             }
-            idx += __builtin_clzll(cur_qword) - idx % QWORD_BITS - QWORD_BITS*step_hint;
+            idx += std::countl_zero(cur_qword) - idx % QWORD_BITS - QWORD_BITS*step_hint;
         }
         return idx;
     }
