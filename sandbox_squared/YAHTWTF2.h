@@ -1,6 +1,7 @@
 #pragma once
 
 #include <vector>
+#include <deque>
 #include <list>
 #include <algorithm>
 
@@ -18,7 +19,8 @@ public:
     {
         std::vector<unsigned char> slots; // any elements in slots past digest size are empty slot indicies
         std::vector<unsigned char> digest; // folded hashes
-        std::vector<std::pair<const K, V> > elements; // make this deque to avoid reference invalidation on inserts
+        //std::vector<std::pair<const K, V> > elements; // make this deque to avoid reference invalidation on inserts
+        std::deque<std::pair<K, V> > elements; // make this deque to avoid reference invalidation on inserts
     };
 
     std::vector<MyBucket2> storage;
@@ -42,6 +44,11 @@ public:
     {
         bucket_count = item_count/MAGIC_COUNT;
         storage.resize(bucket_count);
+		for (auto & bucket : storage)
+		{
+			bucket.digest.reserve(MAGIC_COUNT);
+			bucket.slots.reserve(MAGIC_COUNT);
+		}
     }   
 
     bool set(const K & key, V value) 
@@ -57,7 +64,7 @@ public:
 	        {
                 if (bucket.elements[bucket.slots[i]].first == key) 
                 {
-                    bucket.elements[i].second = value;
+                    bucket.elements[bucket.slots[i]].second = value;
                     return true;
                 }
     	    }
