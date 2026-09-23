@@ -1,92 +1,97 @@
 #pragma once
 
+#include <cstddef>
+#include <cstring>
+#include <utility>
+#include <algorithm>
+
 // Sparse is a worst name possible of course. Its just a triangular adjacency matrix for bidirectional graph with bit per edge.
-struct SparseAdjMatrix
+struct PackedAdjMatrix
 {
-    static constexpr size_t BITS_PER_BYTE = 8;
     void setAdjascent(size_t x, size_t y, bool adjascent) noexcept
     {
-	if (x == y)
-	    return;
+        if (x == y)
+            return;
 
-	if (x > y)
-	{
-	    x ^= y;
-	    y ^= x;
-	    x ^= y;
-	}
-	const size_t pos = (((y*(y - 1)) >> 1) + x);
-	const size_t ullIdx = pos / (BITS_PER_BYTE*(sizeof(size_t)));
-	const size_t ullOffset = pos % (BITS_PER_BYTE*(sizeof(size_t)));
-	size_t * const pUll = (size_t * const) &(arrSparseAdjMatrix[ullIdx]);
-	if (adjascent)
-	    (*pUll) |= (1ULL << ullOffset);
-	else
-	    (*pUll) &= ~(1ULL << ullOffset);
+        if (x > y)
+            std::swap(x, y);
+
+		// arithmetic progression sum + offset
+        const size_t pos = (((y * (y - 1)) >> 1) + x);
+        const size_t ullIdx = pos / (CHAR_BIT * sizeof(size_t));
+        const size_t ullOffset = pos % (CHAR_BIT * sizeof(size_t));
+        size_t& ull = arrPackedAdjMatrix[ullIdx];
+        if (adjascent)
+            ull |= (1ULL << ullOffset);
+        else
+            ull &= ~(1ULL << ullOffset);
     }
 
     bool isAdjascent(size_t x, size_t y) const noexcept
     {
-	if (x == y)
-	    return true;
+        if (x == y)
+            return true;
 
-	if (x > y)
-	{
-	    x ^= y;
-	    y ^= x;
-	    x ^= y;
-	}
-	const size_t pos = (((y*(y - 1)) >> 1) + x);
-	const size_t ullIdx = pos / (BITS_PER_BYTE*(sizeof(size_t)));
-	const size_t ullOffset = pos % (BITS_PER_BYTE*(sizeof(size_t)));
-	size_t * const pUll = (size_t * const) &(arrSparseAdjMatrix[ullIdx]);
-	return (*pUll) & (1ULL << ullOffset);
+        if (x > y)
+            std::swap(x, y);
+
+		// arithmetic progression sum + offset
+        const size_t pos = (((y * (y - 1)) >> 1) + x);
+        const size_t ullIdx = pos / (CHAR_BIT * sizeof(size_t));
+        const size_t ullOffset = pos % (CHAR_BIT * sizeof(size_t));
+        return (arrPackedAdjMatrix[ullIdx] & (1ULL << ullOffset)) != 0;
     }
 
-    explicit SparseAdjMatrix(size_t size) : numElements(size)
+    explicit PackedAdjMatrix(size_t size) : numElements(size)
     {
-	if (numElements)
-	{
-	    actualSize = (((numElements*(numElements + 1)) / 2) / (BITS_PER_BYTE * (sizeof(size_t)))) + 1; // Sn = n(n+1)/2 bits
-	    arrSparseAdjMatrix = new size_t[actualSize];
-	    std::memset(arrSparseAdjMatrix, 0, actualSize * sizeof(size_t));
-	}
+        if (numElements)
+        {
+            actualSize = (((numElements * (numElements + 1)) / 2) / (CHAR_BIT * sizeof(size_t))) + 1; // Sn = n(n+1)/2 bits
+            arrPackedAdjMatrix = new size_t[actualSize];
+            std::memset(arrPackedAdjMatrix, 0, actualSize * sizeof(size_t));
+        }
     }
 
-    ~SparseAdjMatrix()
+    ~PackedAdjMatrix()
     {
-	delete[] arrSparseAdjMatrix;
+        delete[] arrPackedAdjMatrix;
     }
 
-    SparseAdjMatrix(const SparseAdjMatrix& other) // copy constructor
-	: SparseAdjMatrix(other.numElements)
+    PackedAdjMatrix(const PackedAdjMatrix& other) // copy constructor
+        : PackedAdjMatrix(other.numElements)
     {
-	std::memcpy(arrSparseAdjMatrix, other.arrSparseAdjMatrix, actualSize * sizeof(size_t));
+        std::memcpy(arrPackedAdjMatrix, other.arrPackedAdjMatrix, actualSize * sizeof(size_t));
     }
 
-    SparseAdjMatrix(SparseAdjMatrix&& other) noexcept // move constructor
+    PackedAdjMatrix(PackedAdjMatrix&& other) noexcept // move constructor
+        : actualSize(std::exchange(other.actualSize, 0))
+        , numElements(std::exchange(other.numElements, 0))
+        , arrPackedAdjMatrix(std::exchange(other.arrPackedAdjMatrix, nullptr))
     {
-	arrSparseAdjMatrix = std::exchange(other.arrSparseAdjMatrix, nullptr);
-	actualSize = std::exchange(other.actualSize, 0);
-	numElements = std::exchange(other.numElements, 0);
     }
 
-    SparseAdjMatrix& operator=(const SparseAdjMatrix& other) // copy assignment
+    PackedAdjMatrix& operator=(const PackedAdjMatrix& other) // copy assignment
     {
-	SparseAdjMatrix tmp(other);
-	*this = std::move(tmp);
+        if (this == &other)
+            return *this;
+
+        PackedAdjMatrix tmp(other);
+        *this = std::move(tmp);
         return *this;
     }
 
-    SparseAdjMatrix& operator=(SparseAdjMatrix&& other) noexcept // move assignment
+    PackedAdjMatrix& operator=(PackedAdjMatrix&& other) noexcept // move assignment
     {
-	std::swap(arrSparseAdjMatrix, other.arrSparseAdjMatrix);
-	std::swap(actualSize, other.actualSize);
-	std::swap(numElements, other.numElements);
-	return *this;
+        if (this == &other)
+            return *this;
+
+        std::swap(arrPackedAdjMatrix, other.arrPackedAdjMatrix);
+        std::swap(actualSize, other.actualSize);
+        std::swap(numElements, other.numElements);
+        return *this;
     }
 
     size_t actualSize = 0;
     size_t numElements = 0;
-    size_t * arrSparseAdjMatrix = nullptr;
+    size_t* arrPackedAdjMatrix = nullptr;
 };
