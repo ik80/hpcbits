@@ -14,6 +14,8 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 #include <map>
 #include <thread>
 
+// TODO: 1) both these lack correctness 2) allocate all memory as single region, calculate chunk offsets using arithmetic progression kind of formula
+
 // Bullshittenator9000 single threaded object pool. Aquire continuous memory at the start. Have a tree of bitmaps, every chunk with size of cacheline.
 // On the lowest level 1 means element is free, on upper level 1 means chunk has free elements, etc , etc. Overhead is Log512(N) bits per N elements
 
