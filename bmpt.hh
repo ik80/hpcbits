@@ -183,6 +183,7 @@ public:
             chunk->insert(chunk->begin() + rank, value);
             // set bits tree_map upwards from lowest level
             set_bits(idx);
+            ++size_;
             return true;
         }
         return false;
@@ -198,6 +199,7 @@ public:
             chunk->emplace(chunk->begin() + rank, value);
             // set bits tree_map upwards from lowest level
             set_bits(idx);
+            ++size_;
             return true;
         }
         return false;
@@ -239,6 +241,7 @@ public:
             chunk->erase(chunk->begin() + rank);
             // clear bits tree_map upwards from lowest level as needed
             clear_bits(idx);
+            --size_;
             return true;
         }
         return false;
@@ -265,19 +268,19 @@ public:
         // overflow check
         if (idx == capacity_ - 1)
             return -1;
-        bool existing_element = test(idx);
         //premature optimization is the root of all evil
-        if (existing_element && test(idx+1))
+        if (test(idx+1))
             return idx+1;
         // up and then right/down to next set bit in tree_map
         size_t idx_step = 1;
         size_t cur_level = tree_levels_;
-        size_t step_hint = 0;
+        size_t steps = 0;
         //while there are no set bits to the right of idx in current chunk - go up one level
         bool need_to_go_up = false;
         do
         {
             --cur_level;
+            steps = 0;
             // check if need to go up. First remainder of current ULL then the rest. 
             const size_t cur_qword = (tree_map[cur_level][idx / QWORD_BITS]) & ((idx % QWORD_BITS) == 63ULL ? 0ULL : (((size_t) (-1)) << (idx % QWORD_BITS + 1ULL)));
             if (!cur_qword) 
@@ -286,7 +289,7 @@ public:
                 const size_t num_ulls = 7 - (idx % CHUNK_SIZE)/QWORD_BITS;
                 for (size_t i = 0; i < num_ulls; ++i) 
                 {
-                     ++step_hint;
+                     ++steps;
                     if ((tree_map[cur_level][idx / QWORD_BITS + i + 1])) 
                     {
                         need_to_go_up = false;
@@ -306,8 +309,8 @@ public:
         if (!cur_level && need_to_go_up)
             return -1; // nothing ahead
         //select next bit set after idx
-        const size_t cur_qword = (tree_map[cur_level][idx / QWORD_BITS + step_hint]) & (!step_hint ? ((((size_t) (-1)) << (idx % QWORD_BITS + 1))) : (size_t)-1 );
-        idx += std::countr_zero(cur_qword) - idx % QWORD_BITS + QWORD_BITS*step_hint;
+        const size_t cur_qword = (tree_map[cur_level][idx / QWORD_BITS + steps]) & (!steps ? ((((size_t) (-1)) << (idx % QWORD_BITS + 1))) : (size_t)-1 );
+        idx += std::countr_zero(cur_qword) - idx % QWORD_BITS + QWORD_BITS*steps;
         // go down to lowest level
         while(cur_level != tree_levels_ - 1)
         {
@@ -315,19 +318,19 @@ public:
             idx *= CHUNK_SIZE;
             idx_step /= CHUNK_SIZE;
             // select first bit set in chunk
-            step_hint = 0;
+            steps = 0;
             const size_t cur_qword = (tree_map[cur_level][idx / QWORD_BITS]);
             if (!cur_qword) 
             {
                 const size_t num_ulls = 7;
                 for (size_t i = 0; i < num_ulls; ++i) 
                 {
-                     ++step_hint;
+                     ++steps;
                     if ((tree_map[cur_level][idx / QWORD_BITS + i + 1])) 
                         break;
                 }
             }
-            idx += std::countr_zero(tree_map[cur_level][(idx - idx % CHUNK_SIZE) / QWORD_BITS + step_hint]);
+            idx += steps*QWORD_BITS + std::countr_zero(tree_map[cur_level][(idx - idx % CHUNK_SIZE) / QWORD_BITS + steps]);
         }
         return idx;
     }
@@ -336,19 +339,19 @@ public:
         // overflow check
         if (idx == 0)
             return -1;
-        bool existing_element = test(idx);
         //premature optimization is the root of all evil
-        if (existing_element && test(idx-1))
+        if (test(idx-1))
             return idx-1;
         // up and then left/down to next set bit in tree_map
         size_t idx_step = 1;
         size_t cur_level = tree_levels_;
-        size_t step_hint = 0;
+        size_t steps = 0;
         //while there are no set bits to the right of idx in current chunk - go up one level
         bool need_to_go_up = false;
         do
         {
             --cur_level;
+            steps = 0;
             // check if need to go up. First remainder of current ULL then the rest. 
             const size_t cur_qword = (tree_map[cur_level][idx / QWORD_BITS]) & ((idx % QWORD_BITS) == 0 ? 0ULL : (((size_t) (-1)) >> (64ULL - idx % QWORD_BITS )));
             if (!cur_qword) 
@@ -357,7 +360,7 @@ public:
                 const size_t num_ulls = 7 - (CHUNK_SIZE - idx % CHUNK_SIZE)/QWORD_BITS;
                 for (size_t i = 0; i < num_ulls; ++i) 
                 {
-                     ++step_hint;
+                     ++steps;
                     if ((tree_map[cur_level][idx / QWORD_BITS - i - 1])) 
                     {
                         need_to_go_up = false;
@@ -377,8 +380,8 @@ public:
         if (!cur_level && need_to_go_up)
             return -1; // nothing ahead
         //select next bit set after idx
-        const size_t cur_qword = (tree_map[cur_level][idx / QWORD_BITS + step_hint]) & (!step_hint ? ((((size_t) (-1)) >> (64ULL - (idx % QWORD_BITS + 1)))) : (size_t)-1 );
-        idx += std::countl_zero(cur_qword) - idx % QWORD_BITS - QWORD_BITS*step_hint;
+        const size_t cur_qword = (tree_map[cur_level][idx / QWORD_BITS + steps]) & (!steps ? ((((size_t) (-1)) >> (64ULL - (idx % QWORD_BITS + 1)))) : (size_t)-1 );
+        idx += std::countl_zero(cur_qword) - idx % QWORD_BITS - QWORD_BITS*steps;
         // go down to lowest level
         while(cur_level != tree_levels_ - 1)
         {
@@ -386,19 +389,19 @@ public:
             idx *= CHUNK_SIZE;
             idx_step /= CHUNK_SIZE;
             // select first bit set in chunk
-            step_hint = 0;
+            steps = 0;
             const size_t cur_qword = (tree_map[cur_level][idx / QWORD_BITS]);
             if (!cur_qword) 
             {
                 const size_t num_ulls = 7;
                 for (size_t i = 0; i < num_ulls; ++i) 
                 {
-                     ++step_hint;
+                     ++steps;
                     if ((tree_map[cur_level][idx / QWORD_BITS + i + 1])) 
                         break;
                 }
             }
-            idx += std::countl_zero(cur_qword) - idx % QWORD_BITS - QWORD_BITS*step_hint;
+            idx += std::countl_zero(cur_qword) - idx % QWORD_BITS - QWORD_BITS*steps;
         }
         return idx;
     }
